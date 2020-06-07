@@ -1,23 +1,18 @@
 %{
 #include <stdio.h>
+#include"y.tab.hpp"
+#include"symbol.hpp"
 
-#define LIST                strcat(buf, yytext)
-#define token(t)            {LIST; printf("<%s>\n", t);}
-#define tokenInteger(t, i)  {LIST; printf("<%s:%d>\n", t, i);}
-#define tokenString(t, s)   {LIST; printf("<%s:%s>\n", t, s);}
-#define tokenKeyword(t)     {LIST; printf("<%s>\n", t);}
+#define LIST                  strcat(buf, yytext)
+#define token(t)              {LIST; printf("<%s>\n", t); return t;}
+#define tokenType(t, value)   {LIST; printf("<%s:%d>\n", t, value); return t;}
 
 #define MAX_LINE_LENG  1024
-#define MAX_TABLE_LENG 1024
 
 char buf[MAX_LINE_LENG];
 char temp_string[MAX_LINE_LENG];
 int linenum = 1;
 
-int table_len = 0;
-char **table;
-int lookup(char *str);
-void insert(char *str);
 %}
 
 %x COMMENT
@@ -34,101 +29,91 @@ id          {letter}({letter}|{digs})*
 
 %%
 
-"boolean"    {tokenKeyword("BOOLEAN");}
-"break"      {tokenKeyword("BREAK");}
-"byte"       {tokenKeyword("BYTE");}
-"case"       {tokenKeyword("CASE");}
-"catch"      {tokenKeyword("CATCH");}
-"char"       {tokenKeyword("CHAR");}
-"class"      {tokenKeyword("CLASS");}
-"continue"   {tokenKeyword("CONTINUE");}
-"default"    {tokenKeyword("DEFAULT");}
-"do"         {tokenKeyword("DO");}
-"def"        {tokenKeyword("DEF");}
-"double"     {tokenKeyword("DOUBLE");}
-"else"       {tokenKeyword("ELSE");}
-"extends"    {tokenKeyword("EXTENDS");}
-"false"      {tokenKeyword("FALSE");}
-"final"      {tokenKeyword("FINAL");}
-"float"      {tokenKeyword("FLOAT");}
-"for"        {tokenKeyword("FOR");}
-"if"         {tokenKeyword("IF");}
-"implements" {tokenKeyword("IMPLEMENTS");}
-"import"     {tokenKeyword("IMPORT");}
-"int"        {tokenKeyword("INT");}
-"interface"  {tokenKeyword("INTERFACE");}
-"long"       {tokenKeyword("LONG");}
-"new"        {tokenKeyword("NEW");}
-"null"       {tokenKeyword("NULL");}
-"object"     {tokenKeyword("OBJECT");}
-"package"    {tokenKeyword("PACKAGE");}
-"private"    {tokenKeyword("PRIVATE");}
-"print"      {tokenKeyword("PRINT");}
-"println"    {tokenKeyword("PRINTLN")}
-"protected"  {tokenKeyword("PROTECTED");}
-"public"     {tokenKeyword("PUBLIC");}
-"return"     {tokenKeyword("RETURN");}
-"short"      {tokenKeyword("SHORT");}
-"static"     {tokenKeyword("STATIC");}
-"super"      {tokenKeyword("SUPER");}
-"switch"     {tokenKeyword("SWITCH");}
-"this"       {tokenKeyword("THIS");}
-"throw"      {tokenKeyword("THROW");}
-"try"        {tokenKeyword("TRY");}
-"true"       {tokenKeyword("TRUE");}
-"void"       {tokenKeyword("VOID");}
-"var"        {tokenKeyword("VAR");}
-"val"        {tokenKeyword("VAL");}
-"while"      {tokenKeyword("WHILE");}
 
-"+"  {token(yytext);}
-"-"  {token(yytext);}
-"*"  {token(yytext);}
-"/"  {token(yytext);}
-">"  {token(yytext);}
-"<"  {token(yytext);}
-"!"  {token(yytext);}
-"&"  {token(yytext);}
-"|"  {token(yytext);}
-"&&" {token(yytext);}
-"||" {token(yytext);}
-"+=" {token(yytext);}
-"-=" {token(yytext);}
-"*=" {token(yytext);}
-"/=" {token(yytext);}
-"("  {token(yytext);}
-")"  {token(yytext);}
-"["  {token(yytext);}
-"]"  {token(yytext);}
-"{"  {token(yytext);}
-"}"  {token(yytext);}
-","  {token(yytext);}
-";"  {token(yytext);}
-":"  {token(yytext);}
-"++" {token(yytext);}
-"--" {token(yytext);}
-">=" {token(yytext);}
-"<=" {token(yytext);}
-"==" {token(yytext);}
-"!=" {token(yytext);}
-"="  {token(yytext);}
-"%"  {token(yytext);}
-"%=" {token(yytext);}
+"boolean"    {token(BOOLEAN);}
+"break"      {token(BREAK);}
+"case"       {token(CASE);}
+"char"       {token(CHAR);}
+"class"      {token(CLASS);}
+"continue"   {token(CONTINUE);}
+"do"         {token(DO);}
+"def"        {token(DEF);}
+"else"       {token(ELSE);}
+"exit"       {token(EXIT);}
+"false"      {token(FALSE);}
+"float"      {token(FLOAT);}
+"for"        {token(FOR);}
+"if"         {token(IF);}
+"int"        {token(INT);}
+"null"       {token(_NULL);}
+"object"     {token(OBJECT);}
+"print"      {token(PRINT);}
+"println"    {token(PRINTLN)}
+"repeat"     {token(REPEAT);}
+"string"     {token(_STRING);}
+"to"         {token(TO);}
+"return"     {token(RETURN);}
+"type"       {token(TYPE)}
+"true"       {token(TRUE);}
+"var"        {token(VAR);}
+"val"        {token(VAL);}
+"while"      {token(WHILE);}
+
+"+"  {token('+');}
+"-"  {token('-');}
+"*"  {token('*');}
+"/"  {token('/');}
+">"  {token('>');}
+"<"  {token('<');}
+"!"  {token('!');}
+"&"  {token('&');}
+"|"  {token('!');}
+"&&" {token(AND);}
+"||" {token(OR);}
+"+=" {token(ADD_ASSIGN);}
+"-=" {token(SUBT_ASSIGN);}
+"*=" {token(MUTI_ASSIGN);}
+"/=" {token(DIVI_ASSIGN);}
+"("  {token('(');}
+")"  {token(')');}
+"["  {token('[');}
+"]"  {token(']');}
+"{"  {token('{');}
+"}"  {token('}');}
+","  {token(',');}
+";"  {token(';');}
+":"  {token(':');}
+"++" {token(INCRESE);}
+"--" {token(DECRESE);}
+">=" {token(GREAT_EQUAL);}
+"<=" {token(LESS_EQUAL);}
+"==" {token(EQUAL);}
+"!=" {token(NOT_EQUAL);}
+"="  {token('=');}
+"%"  {token('%');}
+"%=" {token(MOD_EQUAL);}
 
 {integer} {
-  tokenInteger("INTEGER", atoi(yytext));
+  yylval.Token.tokenType = TT_INT;
+  yylval.Token.intVal = atoi(yytext);
+  yylval.Token.val_init = true;
+  tokenType(INTEGER, atoi(yytext));
 }
 
 {real} {
-  tokenString("REAL", yytext);
+  yylval.Token.tokenType = TT_FLOAT;
+  yylval.Token.floatVal = atof(yytext);
+  yylval.Token.val_init = true;
+  tokenType(REAL, yytext);
 }
 
 {id} {
-  tokenString("ID", yytext);
-  insert(yytext);
+  yylval.Token.stringVal = yytext;
+  tokenType(ID, yytext);
 }
 
 \n {
+  LIST;
   printf("%d: %s\n", linenum++, buf);
   buf[0]='\0';
 }
@@ -143,6 +128,7 @@ id          {letter}({letter}|{digs})*
 }
 
 <COMMENT>\n {
+  LIST;
   printf("%d: %s\n", linenum++, buf);
   buf[0]='\0';
   BEGIN(INITIAL);
@@ -186,7 +172,10 @@ id          {letter}({letter}|{digs})*
 
 
 <STRING>\" {
-  tokenString("STRING", temp_string);
+  yylval.Token.tokenType = TT_STRING;
+  yylval.Token.stringVal = temp_string;
+  yylval.Token.val_init = true;
+  tokenType(STRING, temp_string);
   temp_string[0] = '\0';
   BEGIN(INITIAL);
 }
@@ -219,31 +208,3 @@ id          {letter}({letter}|{digs})*
   return 0;
 }
 %%
-
-int lookup(char *str){
-  for(int i =0; i < table_len; i++){
-    if(strcmp(table[i], str) == 0)
-      return i;
-  }
-  return -1;
-}
-
-void insert(char *str){
-  if(lookup(str) == -1){
-    table[table_len] = malloc(yyleng * sizeof(char*));
-    strcpy(table[table_len], str);
-    table_len++;
-  }
-}
-
-int main(int argc, char* argv[]) {
-  table = malloc(MAX_TABLE_LENG * sizeof(char*));
-  yylex() ;
-
-  for(int i = 0; i < table_len; i++){
-    printf("%s\n", table[i]);
-  }
-  free(table);
-
-  return EXIT_SUCCESS ;
-}
