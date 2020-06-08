@@ -1,29 +1,32 @@
 %{
 #include<iostream>
-#include<string>
-#include<vector>
-#include<fstream>
+#include"symbol.hpp"
 #include"lex.yy.cpp"
+using namespace std;
 
-#define Trace(t) printf(t)
+#define Trace(t) { cout<< t << "\n\n";}
 
 symbolTables tables = symbolTables();
 
-void yyerror(string);
+extern "C"{
+    int yylex();
+    void yyerror(string);
+};
 %}
 
 %union{
     struct{
-        bool val_init = false;
+        bool val_init;
         int tokenType;
         int intVal;
+        char charVal;
         float floatVal;
         bool boolVal;
-        std::string stringVal;
+        string* stringVal;
     }Token;
 };
 
-%token BOOLEAN BREAK CASE CHAR CLASS CONTINUE DO DEF ELSE EXIT FALSE FLOAT FOR IF INT _NULL OBJECT PRINT PRINTLN REPEAT _STRING TO RETURN TYPE TRUE VAR VAL WHILE
+%token BOOLEAN BREAK CASE _CHAR CLASS CONTINUE DO DEF ELSE EXIT FALSE FLOAT FOR IF INT _NULL OBJECT PRINT PRINTLN REPEAT _STRING TO RETURN TYPE TRUE VAR VAL WHILE
 
 %token AND 
 %token OR 
@@ -40,13 +43,15 @@ void yyerror(string);
 %token MOD_EQUAL 
 
 %token<Token> INTEGER
-%token<Token> STRING
+%token<Token> STR
 %token<Token> REAL
 %token<Token> ID
+%token<Token> CHAR
 
 %type<Token> type expression bool_type func_call
 
 %start program
+
 %left OR
 %left AND
 %left '!'
@@ -56,18 +61,32 @@ void yyerror(string);
 %nonassoc UMINUS
 
 %%
+
 program: OBJECT ID{
+    Trace("OBJECT ID push talbe");
     symbolTable_data obj;
     obj.type = TT_OBJ;
     tables.add(obj);
     tables.push($2.stringVal);
-} '{' method '}';
+} '{' method '}'{
+    Trace("code end");
+    tables.pop();
+};
 
-method: const_declares method | functions method | ;
+method: const_declares method {
+    Trace("reduce const_declares method");
+}
+| functions method {
+    Trace("reduce functions method");
+}
+| statement method {
+    Trace("reduce fstatement method");
+}
+| ;
 
 const_declares: var_declare | val_declare | arr_declare;
 
-var_declare: VAR ID '=' expression ';' {
+var_declare: VAR ID '=' expression {
     Trace("var id = expression");
     symbolTable_data new_var;
     new_var.name = $2.stringVal;
@@ -82,11 +101,13 @@ var_declare: VAR ID '=' expression ';' {
         new_var.stringVal = $4.stringVal;
     else if($4.tokenType == TT_BOOL)
         new_var.boolVal = $4.boolVal;
+    else if($4.tokenType == TT_CHAR)
+        new_var.charVal = $4.charVal;
     
     if(tables.add(new_var) == false)
         yyerror("var id = expression / id has already exit.");
 }   
-| VAR ID ':' type '=' expression ';'{
+| VAR ID ':' type '=' expression{
     Trace("var id : type = expression");
     symbolTable_data new_var;
     new_var.name = $2.stringVal;
@@ -107,11 +128,13 @@ var_declare: VAR ID '=' expression ';' {
         new_var.stringVal = $6.stringVal;
     else if($4.tokenType == TT_BOOL)
         new_var.boolVal = $6.boolVal;
+    else if($4.tokenType == TT_CHAR)
+        new_var.charVal = $6.charVal;
 
     if(!tables.add(new_var))
         yyerror("var id : type = expression error");
 }
-| VAR ID ':' type ';'{
+| VAR ID ':' type{
     Trace("var id : type");
     symbolTable_data new_var;
     new_var.name = $2.stringVal;
@@ -124,7 +147,7 @@ var_declare: VAR ID '=' expression ';' {
 };
 
 
-val_declare: VAL ID '=' expression ';'{
+val_declare: VAL ID '=' expression{
     Trace("val id = expression");
     symbolTable_data new_var;
     new_var.name = $2.stringVal;
@@ -139,11 +162,13 @@ val_declare: VAL ID '=' expression ';'{
         new_var.stringVal = $4.stringVal;
     else if($4.tokenType == TT_BOOL)
         new_var.boolVal = $4.boolVal;
+    else if($4.tokenType == TT_CHAR)
+        new_var.charVal = $4.charVal;
     
     if(!tables.add(new_var))
         yyerror("var id = expression error");
 }
-| VAL ID ':' type '=' expression ';'{
+| VAL ID ':' type '=' expression {
     symbolTable_data new_var;
     new_var.name = $2.stringVal;
     new_var.type = $4.tokenType;
@@ -163,11 +188,12 @@ val_declare: VAL ID '=' expression ';'{
         new_var.stringVal = $6.stringVal;
     else if($4.tokenType == TT_BOOL)
         new_var.boolVal = $6.boolVal;
+    else if($4.tokenType == TT_CHAR)
+        new_var.charVal = $6.charVal;
 
     if(!tables.add(new_var))
         yyerror("var id : type = expression error");
 };
-
 
 arr_declare: VAR ID ':' type '[' expression ']'{
     Trace("var id type[int]");
@@ -186,9 +212,13 @@ arr_declare: VAR ID ':' type '[' expression ']'{
     else if($4.tokenType == TT_FLOAT)
         new_arr.floatArr = new float[new_arr.arrSize];
     else if($4.tokenType == TT_STRING)
-        new_arr.stringArr = new string[new_arr.arrSize];
+        new_arr.stringArr = new string*[new_arr.arrSize];
     else if($4.tokenType == TT_BOOL)
         new_arr.boolArr = new bool[new_arr.arrSize];
+    else if($4.tokenType == TT_CHAR)
+        new_arr.charArr = new char[new_arr.arrSize];
+
+    tables.add(new_arr);
 };
 
 
@@ -207,6 +237,10 @@ type: INT{
 | BOOLEAN{
     Trace("reduce BOOLEAN");
     $$.tokenType = TT_BOOL;
+}
+| _CHAR{
+    Trace("reduce CHAR");
+    $$.tokenType = TT_CHAR;
 };
 
 functions: DEF ID '(' {
@@ -217,8 +251,8 @@ functions: DEF ID '(' {
     if(!tables.add(new_func))
         yyerror("def id (arg) error");
     tables.push($2.stringVal);
-} func_arg ')' func_type scope{
-    Trace("function end pop table");
+} func_arg ')' func_type func_scope{
+    Trace("function end");
 };
 
 func_arg: ID ':' type{
@@ -243,21 +277,30 @@ func_arg: ID ':' type{
 }
 | ;
 
-
 func_type: ':' type{
     Trace("func : type");
-    tables[tables.size()-2].table_datas.back().type = $2.stringVal;
+    tables.tables[tables.tables.size()-2].table_datas.back().func_type = $2.tokenType;
 }
 | ;
 
-scope: '{' func_content '}' {
+func_scope: '{' func_content '}' {
     Trace("scope end");
     tables.pop();
 };
 
+scope: '{' {
+    Trace("scope start");
+    string* temp = new string("statement");
+    tables.push(temp);
+} func_content '}' {
+    Trace("scope end");
+    tables.pop();
+}
+| statement;
+
 func_content: const_declares func_content | statement func_content | ;
 
-statement: ID '=' expression ';'{
+statement : ID '=' expression {
     Trace("id = expression");
     symbolTable_data id = tables.lookup_all($1.stringVal);
     id.isInit = true;
@@ -265,7 +308,7 @@ statement: ID '=' expression ';'{
         yyerror("can not find this ID");
     else if(id.type == TT_FLOAT && $3.tokenType == TT_INT)
         id.floatVal = $3.intVal;
-    else if(id.type != $3.type)
+    else if(id.type != $3.tokenType)
         yyerror("id = expression id type != expression type");
     else if(id.type == TT_INT)
         id.intVal = $3.intVal;
@@ -275,9 +318,11 @@ statement: ID '=' expression ';'{
         id.stringVal = $3.stringVal;
     else if(id.type == TT_BOOL)
         id.boolVal = $3.boolVal;
+    else if(id.type == TT_CHAR)
+        id.charVal = $3.charVal;
     tables.update(id);
 }
-|ID '[' expression ']' '=' expression ';'{
+|ID '[' expression ']' '=' expression {
     Trace("id[expressino] = expression");
     symbolTable_data arr = tables.lookup_all($1.stringVal);
     arr.isInit = true;
@@ -302,26 +347,65 @@ statement: ID '=' expression ';'{
         arr.stringArr[$3.intVal] = $6.stringVal;
     else if(arr.type == TT_BOOL)
         arr.boolArr[$3.intVal] = $6.boolVal;
+    else if(arr.type == TT_CHAR)
+        arr.charArr[$3.intVal] = $6.charVal;
 
     tables.update(arr);
 }
-| PRINT '(' expression ')' ';'
-| PRINTLN '(' expression ')' ';'
-| RETURN ';'
-| RETURN '(' expression ')' ';'
-| IF '(' bool_type ')' scope
-| IF '(' bool_type ')' scope ELSE scope
-| WHILE '(' bool_type ')' scope
-| FOR '(' ID '<' '-' INTEGER TO INTEGER ')'
-| func_call;
+| PRINT '(' expression ')' {
+    Trace("print (expression)");
+}
+| PRINT  expression  {
+    Trace("print expression");
+}
+| PRINTLN '(' expression ')' {
+    Trace("println (expression)");
+}
+| PRINTLN  expression {
+    Trace("println expression");
+}
+| RETURN {
+    Trace("return");
+}
+| RETURN '(' expression ')' {
+    Trace("return (expression)");
+}
+| RETURN expression {
+    Trace("return expression");
+}
+| IF '(' expression ')' scope{
+    Trace("if(bool_type) scope");
+}
+| IF '(' expression ')' scope ELSE scope{
+    Trace("if(bool_type) scope else scope");
+}
+| WHILE '(' expression ')' scope{
+    Trace("while(bool_type) scope");
+}
+| FOR '(' ID '<' '-' expression TO expression ')' scope{
+    Trace("for(id <- int to int ");
+
+    if(tables.lookup_all($3.stringVal).type == TT_NONE)
+        yyerror("for loop id is not find.");
+
+    if($6.tokenType != TT_INT || $8.tokenType != TT_INT)
+        yyerror("for loop type error");
+}
+| ID '=' func_call{
+    Trace("id = func_call");
+    if($1.tokenType != $3.tokenType)
+        yyerror("ID = func_call type error");
+}
+| func_call{
+    Trace("print (expression);");
+};
 
 func_call: ID '(' param ')' {
     Trace("func_call ID (param)");
     symbolTable_data func = tables.lookup_all($1.stringVal);
     if(func.type == TT_NONE)
         yyerror("can not find function");
-    
-    $$.tokenType = func.type;
+    $$.tokenType = func.func_type;
 };
 
 param: expression | expression ',' param | ;
@@ -483,7 +567,7 @@ expression: '-' expression %prec UMINUS {
 
     if(id.type == TT_NONE)
         yyerror("ID can not find this id");
-    if(id.isArr == false)
+    if(id.isArr == true)
         yyerror("ID this id is array but without [ ]");
     
     if(id.type == TT_INT){
@@ -498,6 +582,10 @@ expression: '-' expression %prec UMINUS {
         $$.tokenType = TT_STRING;
         $$.stringVal = id.stringVal;
     }
+    else if(id.type == TT_CHAR){
+        $$.tokenType = TT_CHAR;
+        $$.charVal = id.charVal;
+    }
     else if(id.type == TT_BOOL){
         $$.tokenType = TT_BOOL;
         $$.boolVal = id.boolVal;
@@ -510,11 +598,17 @@ expression: '-' expression %prec UMINUS {
 | REAL{
     Trace("reduce REAL");
 }
-| STRING{
-    Trace("reduce STRING");
+| STR{
+    Trace("reduce STR");
+}
+| CHAR {
+    Trace("reduce CHAR");
 }
 | bool_type {
     Trace("reduce bool_type");
+}
+| func_call{
+    Trace("expression function call")
 }
 |ID '[' expression ']'{
     Trace("id[expression]");
@@ -541,6 +635,10 @@ expression: '-' expression %prec UMINUS {
     else if(id.type == TT_STRING){
         $$.tokenType = TT_STRING;
         $$.stringVal = id.stringArr[$3.intVal];
+    }
+    else if(id.type == TT_CHAR){
+        $$.tokenType = TT_CHAR;
+        $$.charVal = id.charArr[$3.intVal];
     }
     else if(id.type == TT_BOOL){
         $$.tokenType = TT_BOOL;
@@ -577,6 +675,8 @@ bool_type: TRUE {
         $$.boolVal = $1.floatVal > $3.floatVal;
     else if($1.tokenType == TT_STRING && $3.tokenType == TT_STRING)
         $$.boolVal = $1.stringVal > $3.stringVal;
+    else if($1.tokenType == TT_CHAR && $3.tokenType == TT_CHAR)
+        $$.boolVal = $1.charVal > $3.charVal;
     else
         yyerror("expression > expression type error");
 }
@@ -594,6 +694,8 @@ bool_type: TRUE {
         $$.boolVal = $1.floatVal < $3.floatVal;
     else if($1.tokenType == TT_STRING && $3.tokenType == TT_STRING)
         $$.boolVal = $1.stringVal < $3.stringVal;
+    else if($1.tokenType == TT_CHAR && $3.tokenType == TT_CHAR)
+        $$.boolVal = $1.charVal < $3.charVal;
     else
         yyerror("expression > expression type error");
 }
@@ -611,6 +713,8 @@ bool_type: TRUE {
         $$.boolVal = $1.floatVal >= $3.floatVal;
     else if($1.tokenType == TT_STRING && $3.tokenType == TT_STRING)
         $$.boolVal = $1.stringVal >= $3.stringVal;
+    else if($1.tokenType == TT_CHAR && $3.tokenType == TT_CHAR)
+        $$.boolVal = $1.charVal >= $3.charVal;
     else
         yyerror("expression >= expression type error");
 }
@@ -628,6 +732,8 @@ bool_type: TRUE {
         $$.boolVal = $1.floatVal <= $3.floatVal;
     else if($1.tokenType == TT_STRING && $3.tokenType == TT_STRING)
         $$.boolVal = $1.stringVal <= $3.stringVal;
+    else if($1.tokenType == TT_CHAR && $3.tokenType == TT_CHAR)
+        $$.boolVal = $1.charVal <= $3.charVal;
     else
         yyerror("expression <= expression type error");
 }
@@ -635,18 +741,20 @@ bool_type: TRUE {
     Trace("reduce expression == expression");
     $$.tokenType = TT_BOOL;
     if($1.val_init == false)
-        yyerror("expression <= expression $1 is not init");
+        yyerror("expression == expression $1 is not init");
     if($1.val_init == false)
-        yyerror("expression <= expression $1 is not init");
+        yyerror("expression == expression $1 is not init");
 
     if($1.tokenType == TT_INT && $3.tokenType == TT_INT)
-        $$.boolVal = $1.intVal <= $3.intVal;
+        $$.boolVal = $1.intVal == $3.intVal;
     else if($1.tokenType == TT_FLOAT && $3.tokenType == TT_FLOAT)
-        $$.boolVal = $1.floatVal <= $3.floatVal;
+        $$.boolVal = $1.floatVal == $3.floatVal;
     else if($1.tokenType == TT_STRING && $3.tokenType == TT_STRING)
-        $$.boolVal = $1.stringVal <= $3.stringVal;
+        $$.boolVal = $1.stringVal == $3.stringVal;
+    else if($1.tokenType == TT_CHAR && $3.tokenType == TT_CHAR)
+        $$.boolVal = $1.charVal == $3.charVal;
     else
-        yyerror("expression <= expression type error");
+        yyerror("expression == expression type error");
 }
 | expression NOT_EQUAL expression{
     Trace("reduce expression != expression");
@@ -662,6 +770,8 @@ bool_type: TRUE {
         $$.boolVal = $1.floatVal != $3.floatVal;
     else if($1.tokenType == TT_STRING && $3.tokenType == TT_STRING)
         $$.boolVal = $1.stringVal != $3.stringVal;
+    else if($1.tokenType == TT_CHAR && $3.tokenType == TT_CHAR)
+        $$.boolVal = $1.charVal != $3.charVal;
     else
         yyerror("expression != expression type error");
 }
@@ -690,15 +800,26 @@ bool_type: TRUE {
         yyerror("expression || expression type error");
     
     $$.boolVal = $1.boolVal || $3.boolVal;
-}
+};
 
 %%
-void yyerror(const string value){
-    cout<<value<<"\n";
+void yyerror(string value){
+    cout << value << "\n";
 }
 
-int main()
+int main(int argc, char *argv[])
 {
-    yyparse();
-    return 0;
+    if(argc == 1){
+        yyin = stdin;
+    }
+    else if (argc == 2){
+        yyin = fopen(argv[1], "r");
+    }
+    else{
+        printf ("Usage: sc filename\n");
+        exit(1);
+    }
+
+    if (yyparse() == 1)
+        yyerror("Parsing error !");
 }

@@ -6,6 +6,7 @@ using namespace std;
 enum{
     TT_OBJ,
     TT_INT,
+    TT_CHAR,
     TT_STRING,
     TT_FLOAT,
     TT_BOOL,
@@ -14,27 +15,30 @@ enum{
 };
 
 struct symbolTable_data{
-    string name;
+    string* name;
     int type;
+    int func_type = TT_NONE;
 
     int data_type;
     int intVal;
+    char charVal;
     float floatVal;
     bool boolVal;
-    string stringVal;
+    string* stringVal;
     bool isInit = false;
     bool isConst;
 
     bool isArr = false;
     int arrSize;
     int* intArr;
+    char* charArr;
     float* floatArr;
     bool* boolArr;
-    string* stringArr; 
+    string** stringArr; 
 };
 
 struct symbolTable{
-    string scopeName;
+    string* scopeName;
     vector<symbolTable_data>table_datas;
 
 };
@@ -42,13 +46,12 @@ struct symbolTable{
 class symbolTables{
     public:
         symbolTables();
-        void push(string);
+        void push(string*);
         void pop();
         void dump();
         bool add(symbolTable_data);
         bool update(symbolTable_data);
-        symbolTable_data lookup_all(string);
-        symbolTable_data lookup_current(string);
-    private:
+        symbolTable_data lookup_all(string*);
+        symbolTable_data lookup_current(string*);
         vector<symbolTable> tables;
 };

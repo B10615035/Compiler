@@ -1,17 +1,22 @@
 %{
 #include <stdio.h>
 #include"y.tab.hpp"
-#include"symbol.hpp"
 
 #define LIST                  strcat(buf, yytext)
-#define token(t)              {LIST; printf("<%s>\n", t); return t;}
-#define tokenType(t, value)   {LIST; printf("<%s:%d>\n", t, value); return t;}
+#define token(t)              {LIST; return t;}
+#define tokenType(t, value)   {LIST; return t;}
 
 #define MAX_LINE_LENG  1024
 
 char buf[MAX_LINE_LENG];
 char temp_string[MAX_LINE_LENG];
+
 int linenum = 1;
+
+
+extern "C"{
+    int yylex();
+};
 
 %}
 
@@ -22,6 +27,7 @@ int linenum = 1;
 digs        [0-9]+
 letter      [A-Za-z]+
 integer     {digs}
+char        \'[0-9a-zA-Z]\'
 plain_real  [+-]?{digs}.{digs}
 expreal     [+-]?{digs}"."{digs}[Ee][+-]?{digs}
 real        {plain_real}|{expreal}|[+-]?{digs}[Ee][+-]?{digs}
@@ -33,7 +39,7 @@ id          {letter}({letter}|{digs})*
 "boolean"    {token(BOOLEAN);}
 "break"      {token(BREAK);}
 "case"       {token(CASE);}
-"char"       {token(CHAR);}
+"char"       {token(_CHAR);}
 "class"      {token(CLASS);}
 "continue"   {token(CONTINUE);}
 "do"         {token(DO);}
@@ -108,13 +114,20 @@ id          {letter}({letter}|{digs})*
 }
 
 {id} {
-  yylval.Token.stringVal = yytext;
+  yylval.Token.stringVal = new string(yytext);
   tokenType(ID, yytext);
+}
+
+{char} {
+  yylval.Token.tokenType = TT_CHAR;
+  yylval.Token.charVal = yytext[1];
+  yylval.Token.val_init = true;
+  tokenType(CHAR, yytext);
 }
 
 \n {
   LIST;
-  printf("%d: %s\n", linenum++, buf);
+  //printf("%d: %s\n", linenum++, buf);
   buf[0]='\0';
 }
 
@@ -142,7 +155,7 @@ id          {letter}({letter}|{digs})*
 "*/" {
   LIST;
   printf("%d: %s\n", linenum, buf);
-  printf("error\n");
+  printf("comment error\n");
   exit(-1);
 }
 
@@ -173,11 +186,17 @@ id          {letter}({letter}|{digs})*
 
 <STRING>\" {
   yylval.Token.tokenType = TT_STRING;
-  yylval.Token.stringVal = temp_string;
+  yylval.Token.stringVal = new string(temp_string);
   yylval.Token.val_init = true;
-  tokenType(STRING, temp_string);
+  printf("string end\n");
   temp_string[0] = '\0';
   BEGIN(INITIAL);
+  tokenType(STR, temp_string);
+}
+
+<STRING>\n {
+  printf("%d: %s\n", linenum++, buf);
+  printf("string error\n");
 }
 
 <STRING>. {
@@ -185,11 +204,7 @@ id          {letter}({letter}|{digs})*
   strcat(temp_string, yytext);
 }
 
-<STRING>\n {
-  printf("%d: %s\n", linenum++, buf);
-  printf("error\n");
-  exit(-1);
-}
+
 
 [ \t]* {
   LIST;
@@ -198,13 +213,11 @@ id          {letter}({letter}|{digs})*
 . {
   LIST;
   printf("%d: %s", linenum++, buf);
-  printf("error\n");
+  printf("null error\n");
   exit(-1);
 }
-
-<<EOF>> {
-  LIST;
-  printf("%d: %s\n", linenum++, buf);
-  return 0;
-}
 %%
+
+int yywrap(){
+  return 1;
+}
