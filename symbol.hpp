@@ -18,6 +18,10 @@ struct symbolTable_data{
     string* name;
     int type;
     int func_type = TT_NONE;
+	vector<int>argType;
+
+    bool global;
+    int stackIndex = 0;
 
     int data_type;
     int intVal;
@@ -27,7 +31,8 @@ struct symbolTable_data{
     string* stringVal;
     bool isInit = false;
     bool isConst;
-
+    int whileBegin;
+    int whileExit;
     bool isArr = false;
     int arrSize;
     int* intArr;
@@ -40,7 +45,6 @@ struct symbolTable_data{
 struct symbolTable{
     string* scopeName;
     vector<symbolTable_data>table_datas;
-
 };
 
 class symbolTables{
@@ -51,6 +55,7 @@ class symbolTables{
         void dump();
         bool add(symbolTable_data);
         bool update(symbolTable_data);
+        bool isGlobal();
         symbolTable_data lookup_all(string*);
         symbolTable_data lookup_current(string*);
         vector<symbolTable> tables;

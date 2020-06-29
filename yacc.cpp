@@ -1,5 +1,7 @@
 %{
 #include<iostream>
+#include<fstream>
+#include<vector>
 #include"symbol.hpp"
 #include"lex.yy.cpp"
 using namespace std;
@@ -12,6 +14,13 @@ extern "C"{
     int yylex();
     void yyerror(string);
 };
+
+fstream file;
+int stackIndex = 0;
+bool func_return;
+bool isConst = false;
+int jumpIndex = 0;
+vector<int>elseJump;
 %}
 
 %union{
@@ -106,6 +115,24 @@ var_declare: VAR ID '=' expression {
     
     if(tables.add(new_var) == false)
         yyerror("var id = expression / id has already exit.");
+
+
+    if (tables.isGlobal()){
+        new_var.global = true;
+        file << "\t";
+        if(new_var.type == TT_INT)
+            file << "field static int " << new_var.name << " = " << new_var.intVal << "\n";
+        else if(new_var.type == TT_INT)
+            file << "field static int " << new_var.name << " = " << new_var.boolVal << "\n";
+    }
+    else{
+        new_var.global = false;
+        new_var.stackIndex = stackIndex;
+        stackIndex++;
+        file << "\t";
+        file << "istore " << new_var.stackIndex << "\n";
+    }
+
 }   
 | VAR ID ':' type '=' expression{
     Trace("var id : type = expression");
@@ -133,6 +160,22 @@ var_declare: VAR ID '=' expression {
 
     if(!tables.add(new_var))
         yyerror("var id : type = expression error");
+
+    if (tables.isGlobal()){
+        new_var.global = true;
+        file << "\t";
+        if(new_var.type == TT_INT)
+            file << "field static int " << new_var.name << " = " << new_var.intVal << "\n";
+        else if(new_var.type == TT_INT)
+            file << "field static int " << new_var.name << " = " << new_var.boolVal << "\n";
+    }
+    else{
+        new_var.global = false;
+        new_var.stackIndex = stackIndex;
+        stackIndex++;
+        file << "\t";
+        file << "istore " << new_var.stackIndex << "\n";
+    }
 }
 | VAR ID ':' type{
     Trace("var id : type");
@@ -144,10 +187,43 @@ var_declare: VAR ID '=' expression {
 
     if(!tables.add(new_var))
         yyerror("var id : type error");
+
+    if(tables.isGlobal()){
+        new_var.global = true;
+        file << "\t";
+		file << "field static int " << new_var.name << endl;
+    }
+    else{
+        new_var.global = false;
+        new_var.stackIndex = stackIndex;
+        stackIndex++;
+    }
+}
+| VAR ID{
+    Trace("var id");
+    symbolTable_data new_var;
+    new_var.name = $2.stringVal;
+    new_var.type = TT_INT;
+    new_var.isInit = false;
+    new_var.isConst = false;
+
+    if(!tables.add(new_var))
+        yyerror("var id : type error");
+
+    if(tables.isGlobal()){
+        new_var.global = true;
+		file << "field static int " << new_var.name << endl;
+    }
+    else{
+        new_var.global = false;
+        new_var.stackIndex = stackIndex;
+        stackIndex++;
+    }
 };
 
 
-val_declare: VAL ID '=' expression{
+val_declare: VAL {isConst = true;} ID '=' expression{
+    isConst = false;
     Trace("val id = expression");
     symbolTable_data new_var;
     new_var.name = $2.stringVal;
@@ -168,7 +244,8 @@ val_declare: VAL ID '=' expression{
     if(!tables.add(new_var))
         yyerror("var id = expression error");
 }
-| VAL ID ':' type '=' expression {
+| VAL {isConst = true;} ID ':' type '=' expression {
+    isConst = false;
     symbolTable_data new_var;
     new_var.name = $2.stringVal;
     new_var.type = $4.tokenType;
@@ -251,7 +328,40 @@ functions: DEF ID '(' {
     if(!tables.add(new_func))
         yyerror("def id (arg) error");
     tables.push($2.stringVal);
-} func_arg ')' func_type func_scope{
+
+    stackIndex = 0;
+} func_arg ')' func_type{
+    file << "method public static ";
+    symbolTable_data new_func = tables[talbes.size()-2].table_datas.back()
+    if(new_func.name == "main")
+        file << "void main(java.lang.String[])\n";
+    else{
+        if (new_func.type == TT_INT)
+            file << "int";
+        else if (new_func.type == TT_BOOL)
+            file << "bool";
+        else
+            file << "void";
+
+        file << new_func.name << "(";
+
+        for(int i = 0; i < new_func.argType.size(); i++){
+            if(new_func.argType[i] == TT_INT)
+                file << "int";
+            else if (new_func.argType[i] == TT_BOOL)
+                file << "bool";
+            
+            if(i != new_func.argType.size() - 1)
+                file << ", ";
+        }
+        file << ")\n";
+        file << "max_stack 15\n";
+        file << "max_locals 15\n";
+        file << "{\n";
+    }
+    
+    
+} func_scope{
     Trace("function end");
 };
 
@@ -264,6 +374,8 @@ func_arg: ID ':' type{
     
     if(!tables.add(fun_var))
         yyerror("func id : type error");
+
+	tables[tables.size()-2].table_datas.back().argType.push_back($3.tokenType);
 }
 | ID ':' type ',' func_arg{
     Trace("func id : type , func_arg");
@@ -274,6 +386,8 @@ func_arg: ID ':' type{
     
     if(!tables.add(fun_var))
         yyerror("func id : type error");
+
+	tables[tables.size()-2].table_datas.back().argType.push_back($3.tokenType);
 }
 | ;
 
@@ -321,6 +435,15 @@ statement : ID '=' expression {
     else if(id.type == TT_CHAR)
         id.charVal = $3.charVal;
     tables.update(id);
+
+    if(id.isGlobal()){
+        file << "\t";
+        file <<  "putstatic int" << tables[1].table_datas.back().name << "." << id.name << "\n";
+    }
+    else{
+        file << "\t";
+        file << "istore" << id.stackIndex << "\n";
+    }
 }
 |ID '[' expression ']' '=' expression {
     Trace("id[expressino] = expression");
@@ -354,33 +477,104 @@ statement : ID '=' expression {
 }
 | PRINT '(' expression ')' {
     Trace("print (expression)");
+    file << "\t";
+    file << "getstatic java.io.PrintStream java.lang.System.out\n";
+    file << "\t";
+    file << "invokevirtual void java.io.PrintStream.print(";
+    if($3.tokenType == TT_INT)
+        file << "int)\n";
+    else if($3.tokenType == TT_BOOL)
+        file << "bool)\n";
+    else if($3.tokenType == TT_STRING)
+        file << "java.lang.String)\n";
 }
 | PRINT  expression  {
     Trace("print expression");
+    file << "\t";
+    file << "getstatic java.io.PrintStream java.lang.System.out\n";
+    file << "\t";
+    file << "invokevirtual void java.io.PrintStream.print(";
+    if($3.tokenType == TT_INT)
+        file << "int)\n";
+    else if($3.tokenType == TT_BOOL)
+        file << "bool)\n";
+    else if($3.tokenType == TT_STRING)
+        file << "java.lang.String)\n";
 }
 | PRINTLN '(' expression ')' {
     Trace("println (expression)");
+    file << "\t";
+    file << "getstatic java.io.PrintStream java.lang.System.out\n";
+    file << "\t";
+    file << "invokevirtual void java.io.PrintStream.println(";
+    if($3.tokenType == TT_INT)
+        file << "int)\n";
+    else if($3.tokenType == TT_BOOL)
+        file << "bool)\n";
+    else if($3.tokenType == TT_STRING)
+        file << "java.lang.String)\n";
 }
 | PRINTLN  expression {
     Trace("println expression");
+    file << "\t";
+    file << "getstatic java.io.PrintStream java.lang.System.out\n";
+    file << "\t";
+    file << "invokevirtual void java.io.PrintStream.println(";
+    if($3.tokenType == TT_INT)
+        file << "int)\n";
+    else if($3.tokenType == TT_BOOL)
+        file << "bool)\n";
+    else if($3.tokenType == TT_STRING)
+        file << "java.lang.String)\n";
 }
 | RETURN {
     Trace("return");
+    file << "\treturn\n";
 }
 | RETURN '(' expression ')' {
     Trace("return (expression)");
+    file << "\tireturn\n";
 }
 | RETURN expression {
     Trace("return expression");
+    file << "\tireturn\n";
 }
-| IF '(' expression ')' scope{
+| IF '(' expression ')' {
+    file << "ifeq " << "L" << jumpIndex << "\n";
+    elseJump.push_back(jumpIndex);
+    jumpIndex++;
+} scope {
     Trace("if(bool_type) scope");
+    file << "L" << jumpIndex.back() << ":\n";
+    jumpIndex.pop_back();
 }
-| IF '(' expression ')' scope ELSE scope{
+| IF '(' expression ')' {
+    file << "ifeq " << "L" << jumpIndex << "\n";
+    elseJump.push_back(jumpIndex);
+    jumpIndex++;    
+} scope ELSE {
+    file << "goto " << "L" << jumpIndex << "\n";
+    file << "L" << elseJump.back() << ":\n";
+    elseJump.pop_back();
+    elseJump.push_back(jumpIndex);
+    jumpIndex++;
+} scope{
     Trace("if(bool_type) scope else scope");
+    file << "L" << elseJump.back() << ":\n";
+    elseJump.pop_back();
 }
-| WHILE '(' expression ')' scope{
+| WHILE {
+    file << "L" << jumpIndex << ":\n";
+    $1.whileBegin = jumpIndex;
+    jumpIndex++;
+} '(' expression ')' {
+    file << "ifeq " << "L" << jumpIndex << "\n";
+    $1.whileExit = jumpIndex;
+    jumpIndex++;
+} scope{
     Trace("while(bool_type) scope");
+    file << "goto " << "L" << $1.whileBegin << "\n";
+    file << "L" << $1.whileExit << ":\n";
 }
 | FOR '(' ID '<' '-' expression TO expression ')' scope{
     Trace("for(id <- int to int ");
@@ -406,6 +600,28 @@ func_call: ID '(' param ')' {
     if(func.type == TT_NONE)
         yyerror("can not find function");
     $$.tokenType = func.func_type;
+
+    file << "invokestatic ";
+    if (func.type == TT_INT)
+        file << "int ";
+    else if (func.type == TT_BOOL)
+        file << "bool ";
+    else
+        file << "void ";
+
+    file << tables[0].table_datas.back().name << "." << func.name << "(";
+
+    for(int i = 0; i < func.argType.size(); i++){
+        if(func.argType[i] == TT_INT)
+            file << "int";
+        else if (func.argType[i] == TT_BOOL)
+            file << "bool";
+        
+        if(i != func.argType.size() - 1)
+            file << ", ";
+    }
+    file << ")\n";
+
 };
 
 param: expression | expression ',' param | ;
@@ -425,6 +641,9 @@ expression: '-' expression %prec UMINUS {
     }
     else
         yyerror("- expression type error");
+
+    if(!isConst)
+        file << "\tineg\n";
 }
 | expression '+' expression {
     Trace("expression + expression");
@@ -452,6 +671,10 @@ expression: '-' expression %prec UMINUS {
     }
     else
         yyerror("expression + expression type error.");
+    
+    if(!isConst){
+        file << "\tiadd\n";
+    }
 }
 | expression '-' expression {
     Trace("expression - expression");
@@ -479,6 +702,10 @@ expression: '-' expression %prec UMINUS {
     }
     else{
         yyerror("expression * expression type error.");
+    }
+
+    if(!isConst){
+        file << "\tisub\n";
     }
 }
 | expression '*' expression {
@@ -508,6 +735,10 @@ expression: '-' expression %prec UMINUS {
     else{
         yyerror("expression * expression type error.");
     }
+
+    if(!isConst){
+        file << "\timul\n";
+    }
 }
 | expression '/' expression {
     Trace("expression / expression");
@@ -536,8 +767,12 @@ expression: '-' expression %prec UMINUS {
     else{
         yyerror("expression / expression type error.");
     }
+
+    if(!isConst){
+        file << "\tidiv\n";
+    }
 }
-| expression '%' expression {
+| expression '\%' expression {
     Trace("expression % expression");
     if($1.val_init == false)
         yyerror("expression % expression $1 is not initial.");
@@ -551,6 +786,10 @@ expression: '-' expression %prec UMINUS {
     }
     else{
         yyerror("expression % expression type error.");
+    }
+
+    if(!isConst){
+        file << "\tirem\n";
     }
 }
 | '(' expression ')'{
@@ -591,15 +830,40 @@ expression: '-' expression %prec UMINUS {
         $$.boolVal = id.boolVal;
     }
     
+    if(id.isConst){
+        if(id.type == TT_INT)
+            file << "\tsipush" << id.intVal << "\n";
+        else if(id.type == TT_BOOL){
+            if(id.boolVal)
+                file << "\ticonst_1\n";
+            else
+                file << "\ticonst_0\n";
+        }
+        else if(id.type == TT_STRING)
+            file << "\tldc \"" << id.stringVal << "\"\n";
+    }else{
+        if(id.isGlobal()){
+            file << "getstatic int " << tables[0].table_datas.back().name << "." << id.name <<"\n";
+        }
+        else{
+            file << "\tiload " << id.stackIndex << "\n";
+        }
+    }
 }
 | INTEGER {
     Trace("reduce INTEGER");
+    if(!isConst){
+        file << "\tsipush " << $1.intVal << "\n";
+    }
 }
 | REAL{
     Trace("reduce REAL");
 }
 | STR{
     Trace("reduce STR");
+    if(!isConst){
+        file << "ldb \"" << $1.stringVal << "\"\n";
+    }
 }
 | CHAR {
     Trace("reduce CHAR");
@@ -650,16 +914,28 @@ bool_type: TRUE {
     Trace("reduce ture");
     $$.tokenType = TT_BOOL;
     $$.boolVal = true;
+
+    if(!isConst){
+        file << "\ticonst_1\n";
+    }
 }
 | FALSE {
     Trace("reduce false");
     $$.tokenType = TT_BOOL;
     $$.boolVal = false;
+
+    if(!isConst){
+        file << "\ticonst_0\n";
+    }
 }
 | '!' expression{
     Trace("reduce !expression");
     $$.tokenType = TT_BOOL;
     $$.boolVal = !$2.boolVal;
+
+    if(!isConst){
+        file << "\tixor\n";
+    }
 }
 | expression '>' expression{
     Trace("reduce expression > expression");
@@ -679,6 +955,15 @@ bool_type: TRUE {
         $$.boolVal = $1.charVal > $3.charVal;
     else
         yyerror("expression > expression type error");
+
+    file << "\tisub\n";
+    file << "\tifgt " << "L" << jumpIndex << "\n";
+    file << "\ticonst_0\n";
+    file << "\tgoto " << "L" << jumpIndex + 1 << "\n";
+    file << "\tL" << jumpIndex << ":\n";
+    file << "\ticonst_1" << "\n";
+    file << "\tL" << jumpIndex + 1 << ":\n";
+    jumpIndex += 2;
 }
 | expression '<' expression{
     Trace("reduce expression < expression");
@@ -698,6 +983,15 @@ bool_type: TRUE {
         $$.boolVal = $1.charVal < $3.charVal;
     else
         yyerror("expression > expression type error");
+
+    file << "\tisub\n";
+    file << "\tiflt " << "L" << jumpIndex << "\n";
+    file << "\ticonst_0\n";
+    file << "\tgoto " << "L" << jumpIndex + 1 << "\n";
+    file << "\tL" << jumpIndex << ":\n";
+    file << "\ticonst_1" << "\n";
+    file << "\tL" << jumpIndex + 1 << ":\n";
+    jumpIndex += 2;
 }
 | expression GREAT_EQUAL expression{
     Trace("reduce expression >= expression");
@@ -717,6 +1011,15 @@ bool_type: TRUE {
         $$.boolVal = $1.charVal >= $3.charVal;
     else
         yyerror("expression >= expression type error");
+    
+    file << "\tisub\n";
+    file << "\tifge " << "L" << jumpIndex << "\n";
+    file << "\ticonst_0\n";
+    file << "\tgoto " << "L" << jumpIndex + 1 << "\n";
+    file << "\tL" << jumpIndex << ":\n";
+    file << "\ticonst_1" << "\n";
+    file << "\tL" << jumpIndex + 1 << ":\n";
+    jumpIndex += 2;
 }
 | expression LESS_EQUAL expression{
     Trace("reduce expression <= expression");
@@ -736,6 +1039,15 @@ bool_type: TRUE {
         $$.boolVal = $1.charVal <= $3.charVal;
     else
         yyerror("expression <= expression type error");
+
+    file << "\tisub\n";
+    file << "\tifle " << "L" << jumpIndex << "\n";
+    file << "\ticonst_0\n";
+    file << "\tgoto " << "L" << jumpIndex + 1 << "\n";
+    file << "\tL" << jumpIndex << ":\n";
+    file << "\ticonst_1" << "\n";
+    file << "\tL" << jumpIndex + 1 << ":\n";
+    jumpIndex += 2;
 }
 | expression EQUAL expression{
     Trace("reduce expression == expression");
@@ -755,6 +1067,15 @@ bool_type: TRUE {
         $$.boolVal = $1.charVal == $3.charVal;
     else
         yyerror("expression == expression type error");
+
+    file << "\tisub\n";
+    file << "\tifeq " << "L" << jumpIndex << "\n";
+    file << "\ticonst_0\n";
+    file << "\tgoto " << "L" << jumpIndex + 1 << "\n";
+    file << "\tL" << jumpIndex << ":\n";
+    file << "\ticonst_1" << "\n";
+    file << "\tL" << jumpIndex + 1 << ":\n";
+    jumpIndex += 2;
 }
 | expression NOT_EQUAL expression{
     Trace("reduce expression != expression");
@@ -774,6 +1095,15 @@ bool_type: TRUE {
         $$.boolVal = $1.charVal != $3.charVal;
     else
         yyerror("expression != expression type error");
+
+    file << "\tisub\n";
+    file << "\tifne " << "L" << jumpIndex << "\n";
+    file << "\ticonst_0\n";
+    file << "\tgoto " << "L" << jumpIndex + 1 << "\n";
+    file << "\tL" << jumpIndex << ":\n";
+    file << "\ticonst_1" << "\n";
+    file << "\tL" << jumpIndex + 1 << ":\n";
+    jumpIndex += 2;
 }
 | expression AND expression{
     Trace("reduce expression && expression");
@@ -820,6 +1150,11 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
+    file.open("test.jsam", std::ios::out);
+
     if (yyparse() == 1)
         yyerror("Parsing error !");
+
+    file.close;
+    return 0;
 }

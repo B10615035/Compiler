@@ -103,6 +103,13 @@ bool symbolTables::add(symbolTable_data new_data){
     return true;
 }
 
+bool symbolTables::isGlobal(){
+    if(tables.size() == 1)
+        return true;
+    else
+        return false;
+}
+
 bool symbolTables::update(symbolTable_data new_data){
     for(int i = tables.size()-1 ; i >= 0; i--)
         for(int j = 0; j< tables[i].table_datas.size(); j++)
