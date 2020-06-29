@@ -11,3 +11,8 @@ y.tab.cpp: yacc.y
 
 clean:
 	rm parser lex.yy.* y.tab.*
+
+run:
+	./parser ./test/$(file)
+	javaa/javaa ./jasm/$(file).jasm
+	java $(file)

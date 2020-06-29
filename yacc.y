@@ -1164,7 +1164,8 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    file.open("helloworld.jasm", std::ios::out);
+    string fn = "./jasm/" + string(argv[1]) + ".jasm";
+    file.open(fn, std::ios::out);
 
     if(!file){
         printf("========cant open file============\n");
