@@ -13,6 +13,6 @@ clean:
 	rm parser lex.yy.* y.tab.*
 
 run:
-	./parser ./test/$(file)
+	./parser ./test/$(file) $(file)
 	javaa/javaa ./jasm/$(file).jasm
 	java $(file)

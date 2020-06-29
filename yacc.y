@@ -1153,18 +1153,10 @@ void yyerror(string value){
 
 int main(int argc, char *argv[])
 {
-    if(argc == 1){
-        yyin = stdin;
-    }
-    else if (argc == 2){
-        yyin = fopen(argv[1], "r");
-    }
-    else{
-        printf ("Usage: sc filename\n");
-        exit(1);
-    }
+    yyin = fopen(argv[1], "r");
 
-    string fn = "./jasm/" + string(argv[1]) + ".jasm";
+    string fn = "./jasm/" + string(argv[2]) + ".jasm";
+
     file.open(fn, std::ios::out);
 
     if(!file){
