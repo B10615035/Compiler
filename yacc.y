@@ -656,7 +656,7 @@ expression: '-' expression %prec UMINUS {
     else
         yyerror("- expression type error");
 
-    if(!isConst)
+    if(!isConst && !tables.isGlobal())
         file << "ineg\n";
 }
 | expression '+' expression {
@@ -686,7 +686,7 @@ expression: '-' expression %prec UMINUS {
     else
         yyerror("expression + expression type error.");
     
-    if(!isConst){
+    if(!isConst && !tables.isGlobal()){
         file << "iadd\n";
     }
 }
@@ -718,7 +718,7 @@ expression: '-' expression %prec UMINUS {
         yyerror("expression * expression type error.");
     }
 
-    if(!isConst){
+    if(!isConst && !tables.isGlobal()){
         file << "isub\n";
     }
 }
@@ -750,7 +750,7 @@ expression: '-' expression %prec UMINUS {
         yyerror("expression * expression type error.");
     }
 
-    if(!isConst){
+    if(!isConst && !tables.isGlobal()){
         file << "imul\n";
     }
 }
@@ -782,7 +782,7 @@ expression: '-' expression %prec UMINUS {
         yyerror("expression / expression type error.");
     }
 
-    if(!isConst){
+    if(!isConst && !tables.isGlobal()){
         file << "idiv\n";
     }
 }
@@ -802,7 +802,7 @@ expression: '-' expression %prec UMINUS {
         yyerror("expression % expression type error.");
     }
 
-    if(!isConst){
+    if(!isConst && !tables.isGlobal()){
         file << "irem\n";
     }
 }
@@ -866,7 +866,7 @@ expression: '-' expression %prec UMINUS {
 }
 | INTEGER {
     Trace("reduce INTEGER");
-    if(!isConst){
+    if(!isConst && !tables.isGlobal()){
         file << "sipush " << $1.intVal << "\n";
     }
 }
@@ -875,7 +875,7 @@ expression: '-' expression %prec UMINUS {
 }
 | STR{
     Trace("reduce STR");
-    if(!isConst){
+    if(!isConst && !tables.isGlobal()){
         file << "ldc \"" << *$1.stringVal << "\"\n";
     }
 }
@@ -929,7 +929,7 @@ bool_type: TRUE {
     $$.tokenType = TT_BOOL;
     $$.boolVal = true;
 
-    if(!isConst){
+    if(!isConst && !tables.isGlobal()){
         file << "iconst_1\n";
     }
 }
@@ -938,7 +938,7 @@ bool_type: TRUE {
     $$.tokenType = TT_BOOL;
     $$.boolVal = false;
 
-    if(!isConst){
+    if(!isConst && !tables.isGlobal()){
         file << "iconst_0\n";
     }
 }
@@ -946,7 +946,7 @@ bool_type: TRUE {
     Trace("reduce !expression");
     $$.tokenType = TT_BOOL;
     $$.boolVal = !$2.boolVal;
-    if(!isConst){
+    if(!isConst && !tables.isGlobal()){
         file << "iconst_1\n";
         file << "ixor\n";
     }
@@ -1131,6 +1131,10 @@ bool_type: TRUE {
         yyerror("expression && expression type error");
     
     $$.boolVal = $1.boolVal && $3.boolVal;
+
+    if(!isConst && !tables.isGlobal()){
+        file << "iand\n";
+    }
 }
 | expression OR expression{
     Trace("reduce expression || expression");
@@ -1144,6 +1148,9 @@ bool_type: TRUE {
         yyerror("expression || expression type error");
     
     $$.boolVal = $1.boolVal || $3.boolVal;
+    if(!isConst && !tables.isGlobal()){
+        file << "ior\n";
+    }
 };
 
 %%

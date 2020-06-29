@@ -646,7 +646,7 @@ static const yytype_int16 yyrline[] =
      601,   631,   631,   639,   641,   641,   641,   643,   662,   693,
      725,   757,   789,   809,   813,   867,   873,   876,   882,   885,
      888,   891,   927,   936,   945,   954,   982,  1010,  1038,  1066,
-    1094,  1122,  1135
+    1094,  1122,  1139
 };
 #endif
 
@@ -2452,7 +2452,7 @@ yyreduce:
     else
         yyerror("- expression type error");
 
-    if(!isConst)
+    if(!isConst && !tables.isGlobal())
         file << "ineg\n";
 }
 #line 2459 "y.tab.cpp"
@@ -2487,7 +2487,7 @@ yyreduce:
     else
         yyerror("expression + expression type error.");
     
-    if(!isConst){
+    if(!isConst && !tables.isGlobal()){
         file << "iadd\n";
     }
 }
@@ -2524,7 +2524,7 @@ yyreduce:
         yyerror("expression * expression type error.");
     }
 
-    if(!isConst){
+    if(!isConst && !tables.isGlobal()){
         file << "isub\n";
     }
 }
@@ -2561,7 +2561,7 @@ yyreduce:
         yyerror("expression * expression type error.");
     }
 
-    if(!isConst){
+    if(!isConst && !tables.isGlobal()){
         file << "imul\n";
     }
 }
@@ -2598,7 +2598,7 @@ yyreduce:
         yyerror("expression / expression type error.");
     }
 
-    if(!isConst){
+    if(!isConst && !tables.isGlobal()){
         file << "idiv\n";
     }
 }
@@ -2623,7 +2623,7 @@ yyreduce:
         yyerror("expression % expression type error.");
     }
 
-    if(!isConst){
+    if(!isConst && !tables.isGlobal()){
         file << "irem\n";
     }
 }
@@ -2702,7 +2702,7 @@ yyreduce:
 #line 867 "yacc.y"
           {
     Trace("reduce INTEGER");
-    if(!isConst){
+    if(!isConst && !tables.isGlobal()){
         file << "sipush " << (yyvsp[0].Token).intVal << "\n";
     }
 }
@@ -2721,7 +2721,7 @@ yyreduce:
 #line 876 "yacc.y"
      {
     Trace("reduce STR");
-    if(!isConst){
+    if(!isConst && !tables.isGlobal()){
         file << "ldc \"" << *(yyvsp[0].Token).stringVal << "\"\n";
     }
 }
@@ -2799,7 +2799,7 @@ yyreduce:
     (yyval.Token).tokenType = TT_BOOL;
     (yyval.Token).boolVal = true;
 
-    if(!isConst){
+    if(!isConst && !tables.isGlobal()){
         file << "iconst_1\n";
     }
 }
@@ -2813,7 +2813,7 @@ yyreduce:
     (yyval.Token).tokenType = TT_BOOL;
     (yyval.Token).boolVal = false;
 
-    if(!isConst){
+    if(!isConst && !tables.isGlobal()){
         file << "iconst_0\n";
     }
 }
@@ -2826,7 +2826,7 @@ yyreduce:
     Trace("reduce !expression");
     (yyval.Token).tokenType = TT_BOOL;
     (yyval.Token).boolVal = !(yyvsp[0].Token).boolVal;
-    if(!isConst){
+    if(!isConst && !tables.isGlobal()){
         file << "iconst_1\n";
         file << "ixor\n";
     }
@@ -3046,12 +3046,16 @@ yyreduce:
         yyerror("expression && expression type error");
     
     (yyval.Token).boolVal = (yyvsp[-2].Token).boolVal && (yyvsp[0].Token).boolVal;
+
+    if(!isConst && !tables.isGlobal()){
+        file << "iand\n";
+    }
 }
-#line 3051 "y.tab.cpp"
+#line 3055 "y.tab.cpp"
     break;
 
   case 92:
-#line 1135 "yacc.y"
+#line 1139 "yacc.y"
                           {
     Trace("reduce expression || expression");
     (yyval.Token).tokenType = TT_BOOL;
@@ -3064,12 +3068,15 @@ yyreduce:
         yyerror("expression || expression type error");
     
     (yyval.Token).boolVal = (yyvsp[-2].Token).boolVal || (yyvsp[0].Token).boolVal;
+    if(!isConst && !tables.isGlobal()){
+        file << "ior\n";
+    }
 }
-#line 3069 "y.tab.cpp"
+#line 3076 "y.tab.cpp"
     break;
 
 
-#line 3073 "y.tab.cpp"
+#line 3080 "y.tab.cpp"
 
       default: break;
     }
@@ -3301,7 +3308,7 @@ yyreturn:
 #endif
   return yyresult;
 }
-#line 1149 "yacc.y"
+#line 1156 "yacc.y"
 
 void yyerror(string value){
     cout << value << "\n";
