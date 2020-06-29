@@ -1,4 +1,4 @@
-#include"symbol.hpp"
+#include"symbol.hpp" 
 
 symbolTables::symbolTables(){
     symbolTable table;
@@ -104,7 +104,7 @@ bool symbolTables::add(symbolTable_data new_data){
 }
 
 bool symbolTables::isGlobal(){
-    if(tables.size() == 1)
+    if(tables.size() == 2)
         return true;
     else
         return false;

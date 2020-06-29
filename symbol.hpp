@@ -1,4 +1,4 @@
-#include<iostream>
+#include<iostream> 
 #include<string>
 #include<vector>
 using namespace std;
@@ -21,7 +21,7 @@ struct symbolTable_data{
 	vector<int>argType;
 
     bool global;
-    int stackIndex = 0;
+    int stackIndex;
 
     int data_type;
     int intVal;
@@ -30,9 +30,8 @@ struct symbolTable_data{
     bool boolVal;
     string* stringVal;
     bool isInit = false;
-    bool isConst;
-    int whileBegin;
-    int whileExit;
+    bool isConst = false;
+    
     bool isArr = false;
     int arrSize;
     int* intArr;
